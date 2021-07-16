@@ -71,6 +71,10 @@ class MaiDataListener : SimpleListenerHost() {
     // Primitive output for now. Try to compose a picture?
     private suspend fun onMessage(msg: String, sender: Contact) {
         when {
+            msg.startsWith("/如何绑定") || msg.startsWith("/help") -> {
+                send("请参考：https://github.com/Louiswu2011/Rikka-Bot/wiki/%E7%BB%91%E5%AE%9A%E7%8E%A9%E5%AE%B6%E4%BF%A1%E6%81%AF", sender)
+            }
+
             msg.startsWith("/绑定 ") || msg.startsWith("/bind ") -> {
                 val tokens = msg.split(" ")
 
