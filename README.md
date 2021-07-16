@@ -10,7 +10,7 @@
 * B站用户订阅
 
 ## 如何绑定玩家信息？
-请参考wiki
+请参考 [Wiki](https://github.com/Louiswu2011/Rikka-Bot/wiki/%E4%B8%BB%E9%A1%B5)
 
 ## License & Disclaimer
 [WTFPL](http://www.wtfpl.net/)
