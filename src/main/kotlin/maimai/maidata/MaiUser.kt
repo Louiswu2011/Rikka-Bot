@@ -4,8 +4,8 @@ data class MaiUser(
     val username: String,
     val rating: Int,
     val maxRating: Int,
-    val playCount: Int,
+    val playCount: String,
     val trophyTitle: String,
-    val starCount: Int,
+    val starCount: String,
     val avatarUrl: String
 )

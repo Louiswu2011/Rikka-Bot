@@ -1,6 +1,7 @@
 package listeners
 
 import io.ktor.http.cio.*
+import kotlinx.coroutines.launch
 import maimai.maidata.MaiObjectStats
 import maimai.maidata.MaiRecentTrack
 import maimai.maidata.MaiTrackDetail
@@ -44,18 +45,22 @@ class MaiDataListener : SimpleListenerHost() {
         // TODO: Get user binding information.
         credentialsFile.inputStream().bufferedReader().useLines { lines ->
             lines.forEach {
-                val user = it.split(":")[0].toLong()
-                val id = it.split(":")[1].split(";")[0]
-                val token = it.split(":")[1].split(";")[1]
+                if(it != "") {
+                    val user = it.split(":")[0].toLong()
+                    val id = it.split(":")[1].split(";")[0]
+                    val token = it.split(":")[1].split(";")[1]
 
-                val tokenPair = mutableListOf<String>()
+                    val tokenPair = mutableListOf<String>()
 
-                tokenPair.add(id)
-                tokenPair.add(token)
+                    tokenPair.add(id)
+                    tokenPair.add(token)
 
-                credentialsMap[user] = tokenPair
+                    credentialsMap[user] = tokenPair
+                }
             }
         }
+
+
     }
 
     @EventHandler
@@ -76,123 +81,134 @@ class MaiDataListener : SimpleListenerHost() {
             }
 
             msg.startsWith("/绑定 ") || msg.startsWith("/bind ") -> {
-                val tokens = msg.split(" ")
+                launch {
+                    val tokens = msg.split(" ")
 
-                if (tokens.size < 3) {
-                    send("绑定所需的参数不足！\n使用方法：绑定 <UserID> <Token>", sender)
-                    return
-                }
+                    if (tokens.size < 3) {
+                        send("绑定所需的参数不足！\n使用方法：绑定 <UserID> <Token>", sender)
+                        return@launch
+                    }
 
-                if (tokens.size > 3) {
-                    send("输入的参数过多！\n使用方法：绑定 <UserID> <Token>", sender)
-                    return
-                }
+                    if (tokens.size > 3) {
+                        send("输入的参数过多！\n使用方法：绑定 <UserID> <Token>", sender)
+                        return@launch
+                    }
 
-                if (!credentialsMap.containsKey(sender.id)) {
-                    credentialsMap[sender.id] = mutableListOf(tokens[1], tokens[2])
-                    send("绑定成功！", sender)
-                } else {
-                    credentialsMap[sender.id] = mutableListOf(tokens[1], tokens[2])
-                    send("更新成功！", sender)
+                    if (!credentialsMap.containsKey(sender.id)) {
+                        credentialsMap[sender.id] = mutableListOf(tokens[1], tokens[2])
+                        send("绑定成功！", sender)
+                    } else {
+                        credentialsMap[sender.id] = mutableListOf(tokens[1], tokens[2])
+                        send("更新成功！", sender)
+                    }
+
+                    updateCredentials()
                 }
             }
 
             msg == "/用户信息" || msg == "/info" -> {
-                if (!credentialsMap.containsKey(sender.id)) {
-                    send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
-                    return
+                launch {
+                    if (!credentialsMap.containsKey(sender.id)) {
+                        send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
+                        return@launch
+                    }
+
+                    val user = provider.getMaiUser(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])
+
+                    val str = StringBuffer()
+
+                    with(user) {
+                        str.append("[$username] Rating $rating\n")
+                        str.append("$trophyTitle\n")
+                        str.append("${playCount}次 星星×$starCount\n")
+                    }
+
+                    send(str.toString(), sender)
+
+                    credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
+                    updateCredentials()
                 }
-
-                val user = provider.getMaiUser(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])
-
-                val str = StringBuffer()
-
-                with(user) {
-                    str.append("[$username] Rating $rating\n")
-                    str.append("$trophyTitle\n")
-                    str.append("总游玩次数: ${playCount}次 星星×$starCount\n")
-                }
-
-                send(str.toString(), sender)
-
-                credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
-                updateCredentials()
             }
 
             msg == "/最近一首" || msg == "/recent1" -> {
-                if (!credentialsMap.containsKey(sender.id)) {
-                    send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
-                    return
+                launch {
+                    if (!credentialsMap.containsKey(sender.id)) {
+                        send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
+                        return@launch
+                    }
+
+                    val recent1 =
+                        provider.getRecentRecord(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])[0]
+
+                    val str = StringBuffer()
+
+                    with(recent1) {
+                        str.append("id$id [$title]\n")
+                        str.append("游玩时间：$playtime $trackNum\n")
+                        str.append("达成率：$achievement $badgeAchievement $badgeMultiplayer\n")
+                        str.append("DX分数：$DXScore")
+                    }
+
+                    send(str.toString(), sender)
+
+                    credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
+                    updateCredentials()
                 }
-
-                val recent1 =
-                    provider.getRecentRecord(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])[0]
-
-                val str = StringBuffer()
-
-                with(recent1) {
-                    str.append("id$id [$title]\n")
-                    str.append("游玩时间：$playtime $trackNum\n")
-                    str.append("达成率：$achievement $badgeAchievement $badgeMultiplayer\n")
-                    str.append("DX分数：$DXScore")
-                }
-
-                send(str.toString(), sender)
-
-                credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
-                updateCredentials()
             }
 
             msg == "/最近记录" || msg == "/recent" -> {
-                if (!credentialsMap.containsKey(sender.id)) {
-                    send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
-                    return
-                }
+                launch {
+                    if (!credentialsMap.containsKey(sender.id)) {
+                        send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
+                        return@launch
+                    }
 
-                val recentList =
-                    provider.getRecentRecord(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])
-
-                val msg = StringBuffer()
-
-                recentList.forEach {
-                    msg.append("ID:${it.id} ${it.title}\n")
-                }
-                msg.removeSuffix("\n")
-
-                sender.sendMessage(msg.toString())
-
-                credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
-                updateCredentials()
-            }
-
-            msg.startsWith("/最近记录 ") || msg.startsWith("/recent ") -> {
-                if (!credentialsMap.containsKey(sender.id)) {
-                    send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
-                    return
-                }
-
-                val args = msg.split(" ")
-
-                if (args.size < 2) {
-                    send("查询所需的参数不足！\n使用方法：/最近记录 <记录ID>", sender)
-                    return
-                }
-
-                if (args.size > 2) {
-                    send("输入的参数过多！\n使用方法：/最近记录 <记录ID>", sender)
-                    return
-                }
-
-                try {
-                    val item = provider.getTrackDetailFromRecent(
-                        credentialsMap[sender.id]!![0],
-                        credentialsMap[sender.id]!![1],
-                        args[1]
-                    )
+                    val recentList =
+                        provider.getRecentRecord(credentialsMap[sender.id]!![0], credentialsMap[sender.id]!![1])
 
                     val msg = StringBuffer()
 
-                    /*
+                    recentList.forEach {
+                        msg.append("ID:${it.id} ${it.title}\n")
+                    }
+                    msg.removeSuffix("\n")
+
+                    sender.sendMessage(msg.toString())
+
+                    credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
+                    updateCredentials()
+                }
+            }
+
+            msg.startsWith("/最近记录 ") || msg.startsWith("/recent ") -> {
+                launch {
+                    if (!credentialsMap.containsKey(sender.id)) {
+                        send("暂未绑定用户数据！\n使用 /绑定 来绑定用户", sender)
+                        return@launch
+                    }
+
+                    val args = msg.split(" ")
+
+                    if (args.size < 2) {
+                        send("查询所需的参数不足！\n使用方法：/最近记录 <记录ID>", sender)
+                        return@launch
+                    }
+
+                    if (args.size > 2) {
+                        send("输入的参数过多！\n使用方法：/最近记录 <记录ID>", sender)
+                        return@launch
+                    }
+
+                    try {
+                        val item = provider.getTrackDetailFromRecent(
+                            credentialsMap[sender.id]!![0],
+                            credentialsMap[sender.id]!![1],
+                            args[1]
+                        )
+
+                        val msg = StringBuffer()
+
+                        /*
                                CP   P   GR   GD   MS
                         Tap    100  100 100  100  100
                         Hold   90   1   100  100  100
@@ -201,56 +217,57 @@ class MaiDataListener : SimpleListenerHost() {
                         Break  100  100 100  100  100
                      */
 
-                    with(item) {
-                        msg.append("[$title]\n")
-                        msg.append("$trackNum $playtime\n")
-                        msg.append("成绩：$achievement $badgeAchievement $badgeMultiplayer\n")
-                        msg.append("DX分数：$DXScore\n")
-                        msg.append("连击：$maxCombo Sync：$maxSync\n")
-                        msg.append("\n")
+                        with(item) {
+                            msg.append("[$title]\n")
+                            msg.append("$trackNum $playtime\n")
+                            msg.append("成绩：$achievement $badgeAchievement $badgeMultiplayer\n")
+                            msg.append("DX分数：$DXScore\n")
+                            msg.append("连击：$maxCombo Sync：$maxSync\n")
+                            msg.append("\n")
 
-                        msg.append(
-                            " ".repeat(7) + "CP" + " ".repeat(3) + "P" + " ".repeat(3) + "GR" + " ".repeat(3) + "GD" + " ".repeat(
-                                3
-                            ) + "MS" + " ".repeat(1) + "\n"
-                        )
-                        msg.append(tapStats.prettyPrintStats())
-                        msg.append(holdStats.prettyPrintStats())
-                        msg.append(slideStats.prettyPrintStats())
+                            msg.append(
+                                " ".repeat(7) + "CP" + " ".repeat(3) + "P" + " ".repeat(3) + "GR" + " ".repeat(3) + "GD" + " ".repeat(
+                                    3
+                                ) + "MS" + " ".repeat(1) + "\n"
+                            )
+                            msg.append(tapStats.prettyPrintStats())
+                            msg.append(holdStats.prettyPrintStats())
+                            msg.append(slideStats.prettyPrintStats())
 
-                        if(touchStats != null){
-                            msg.append(touchStats.prettyPrintStats())
-                        }
+                            if (touchStats != null) {
+                                msg.append(touchStats.prettyPrintStats())
+                            }
 
-                        msg.append(breakStats.prettyPrintStats() + "\n")
+                            msg.append(breakStats.prettyPrintStats() + "\n")
 
-                        msg.append("拼机人：")
-                        if (isMulti()){
-                            matchingPlayers.forEach {
-                                if (it != "―"){
-                                    msg.append("$it ")
+                            msg.append("拼机人：")
+                            if (isMulti()) {
+                                matchingPlayers.forEach {
+                                    if (it != "―") {
+                                        msg.append("$it ")
+                                    }
                                 }
+                                msg.append("\n")
+                            } else {
+                                msg.append("单刷的\n")
                             }
                             msg.append("\n")
-                        } else {
-                            msg.append("单刷的\n")
+
+                            msg.append("段位Ra：$danRating 底Ra：$baseRating $ratingChanges")
                         }
-                        msg.append("\n")
 
-                        msg.append("段位Ra：$danRating 底Ra：$baseRating $ratingChanges")
+                        send(msg.toString(), sender)
+
+                    } catch (e: Exception) {
+                        send("输入的记录ID有误！", sender)
+
+                        credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
+                        updateCredentials()
                     }
-
-                    send(msg.toString(), sender)
-
-                } catch (e: Exception) {
-                    send("输入的记录ID有误！", sender)
 
                     credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
                     updateCredentials()
                 }
-
-                credentialsMap[sender.id] = mutableListOf(credentialsMap[sender.id]!![0], provider.latestToken)
-                updateCredentials()
             }
 
             else -> return
@@ -287,10 +304,9 @@ class MaiDataListener : SimpleListenerHost() {
         val str = StringBuffer()
 
         credentialsMap.forEach { id, tokenPair ->
-            str.append("$id:${tokenPair[0]};${tokenPair[1]}\n")
+            str.append("$id:${tokenPair[0]};${tokenPair[1]}")
+            str.append("\n")
         }
-
-        str.removeSuffix("\n")
 
         credentialsFile.outputStream().bufferedWriter().use { writer ->
             writer.write(str.toString())

@@ -1,6 +1,8 @@
 package providers
 
 import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.features.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -48,7 +50,7 @@ class MaiDataProvider {
         val ratingNode = doc.getElementsByClass("rating_block f_11")[0].childNode(0) as TextNode
         val maxRatingNode = doc.getElementsByClass("p_r_5 f_11")[0].childNode(0) as TextNode
         val playCountNode = doc.getElementsByClass("m_5 m_t_10 t_r f_12")[0].childNode(0) as TextNode
-        val trophyTitleNode = doc.getElementsByClass("trophy_inner_block f_13")[0].childNode(0) as TextNode
+        val trophyTitleNode = doc.select("div[class=trophy_inner_block f_13]").select("span")
         val starCountNode = doc.getElementsByClass("p_l_10 f_l f_14")[0].childNode(1) as TextNode
 
         latestToken = returns[2]
@@ -57,9 +59,9 @@ class MaiDataProvider {
             username = usernameNode.wholeText,
             rating = ratingNode.wholeText.toInt(),
             maxRating = maxRatingNode.wholeText.substringAfter("：").toInt(),
-            playCount = playCountNode.wholeText.toInt(),
-            trophyTitle = trophyTitleNode.wholeText,
-            starCount = starCountNode.wholeText.removePrefix("×").toInt(),
+            playCount = playCountNode.wholeText,
+            trophyTitle = trophyTitleNode.text(),
+            starCount = starCountNode.wholeText.removePrefix("×"),
             ""
         )
     }
@@ -261,13 +263,16 @@ class MaiDataProvider {
     private suspend fun getResponseStringFromUrl(id: String, token: String, url: String): MutableList<String> {
         val returns = mutableListOf<String>()
 
-        val client = HttpClient()
+        val client = HttpClient(CIO){
+            Charsets {
+                register(Charsets.UTF_8)
+            }
+        }
 
         val response: HttpResponse = client.get(url) {
             headers {
                 cookie("_t", id)
-                cookie("userId", token)
-                userAgent("Mozilla/5.0")
+                cookie("userId", token, httpOnly = true)
             }
         }
 

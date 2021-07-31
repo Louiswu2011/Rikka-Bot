@@ -27,7 +27,7 @@ import java.util.regex.Pattern
 
 class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost() {
 
-    val DEBUG_MODE = true
+    val DEBUG_MODE = false
 
     val NLGroupID = 913642213L
 
@@ -72,7 +72,7 @@ class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost(
 
         launch {
             while (true) {
-                println("Checking time...")
+                // println("Checking time...")
                 delay(timerDelay)
                 currentCalendar = Calendar.getInstance()
                 isFlushed =
@@ -81,10 +81,10 @@ class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost(
                             it.reset()
                         }
                         flushFile()
-                        println("Buffer flushed.")
+                        // println("Buffer flushed.")
                         true
                     } else {
-                        println("No need to flush buffer.")
+                        // println("No need to flush buffer.")
                         false
                     }
             }
