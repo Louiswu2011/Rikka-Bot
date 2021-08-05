@@ -14,6 +14,8 @@ class Location(val name: String, val keyWords: Array<String>, val groupID: Int) 
     private val format = SimpleDateFormat("HH:mm:ss")
     private val matcherBuilder = StringBuilder()
 
+    val historyList = mutableListOf<History>()
+
     var player = 0
     var total = 0
     var peak = 0
@@ -54,29 +56,49 @@ class Location(val name: String, val keyWords: Array<String>, val groupID: Int) 
         player = 0
         peak = 0
         total = 0
+        historyList.clear()
     }
 
     // Automatically refresh calendar, peak and total when modified
 
-    fun incrementPlayer(int: Int) {
+    fun incrementPlayer(int: Int, nickname: String) {
+        historyList.add(History(Calendar.getInstance(), nickname, "加", int))
         peak = max(player, player + int)
         total += int
         player += int
         refresh()
     }
 
-    fun decrementPlayer(int: Int) {
+    fun decrementPlayer(int: Int, nickname: String) {
+        historyList.add(History(Calendar.getInstance(), nickname, "减", int))
         player -= int
         refresh()
     }
 
-    fun report(): String = name + "共计" + total + "人出勤，峰值" + peak + "人出勤。"
+    fun history(): Message{
+        val buffer = StringBuffer()
+
+        if (historyList.isNotEmpty()) {
+            buffer.append("历史记录\n")
+            historyList.forEach {
+                with(it) {
+                    buffer.append("${date.get(Calendar.HOUR_OF_DAY)}:${date.get(Calendar.MINUTE)} $nickname ${operation}了${amount}卡")
+                }
+            }
+        } else {
+            buffer.append("暂无历史记录！")
+        }
+
+        return PlainText(buffer.toString())
+    }
+
+    fun report(): Message = PlainText(name + "共计" + total + "人出勤，峰值" + peak + "人出勤。")
 
     fun toMessage(): Message = PlainText(name + "当前人数: $player\n更新时间：" + format.format(currentCalendar.time))
 
     fun dateToString(): String = format.format(currentCalendar.time)
 
-    fun register(command: String) {
+    fun register(command: String, nickname: String) {
         val matcher = pattern.matcher(command)
         if(matcher.find()){
             val location = matcher.group(1)
@@ -89,13 +111,13 @@ class Location(val name: String, val keyWords: Array<String>, val groupID: Int) 
                 naughty()
             }
             if(operation == "加" || operation == "+"){
-                incrementPlayer(num.toInt())
+                incrementPlayer(num.toInt(), nickname)
                 bingo()
             }
             if(player - num.toInt() < 0) {
                 naughty()
             }
-            decrementPlayer(num.toInt())
+            decrementPlayer(num.toInt(), nickname)
             bingo()
         }
     }

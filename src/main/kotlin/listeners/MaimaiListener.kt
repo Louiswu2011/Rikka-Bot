@@ -147,6 +147,29 @@ class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost(
                 }
             }
 
+            text.endsWith("有谁") || text.endsWith("ys") -> {
+                val requestLocation: String = text.substring(0, text.length - 2)
+                if (sender is Member) {
+                    getReachableLocationList(sender.group.id).forEach { location ->
+                        with(location) {
+                            if (keyWords.contains(requestLocation)) {
+                                send(sender, history())
+                                return
+                            }
+                        }
+                    }
+                } else if (sender is Friend) {
+                    locations.forEach { location ->
+                        with(location) {
+                            if (keyWords.contains(requestLocation)) {
+                                send(sender, history())
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+
             text.startsWith("今天maimai打什么", true) -> send(sender, r.getRandomSong().toMessage(sender as Contact))
 
             // 加减卡
@@ -154,7 +177,7 @@ class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost(
                 if (sender is Member) {
                     getReachableLocationList(sender.group.id).forEach { location ->
                         try {
-                            location.register(text)
+                            location.register(text, sender.nick)
                         } catch (e: ThisIsNotAnException) {
                             send(sender, location.toMessage())
                             updateBuffer()
@@ -166,7 +189,7 @@ class MaimaiListener(var locations: MutableList<Location>) : SimpleListenerHost(
                 } else if (sender is Friend) {
                     locations.forEach { location ->
                         try {
-                            location.register(text)
+                            location.register(text, sender.nick)
                         } catch (e: ThisIsNotAnException) {
                             send(sender, location.toMessage())
                             updateBuffer()
